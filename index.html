@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kalender Otomatis</title>
+<meta name="description" content="Masukkan berkas jadwal (Excel, CSV, PDF, Word, ICS) dan langsung masukkan ke Google Kalender akun Anda, lengkap dengan alarm.">
+<meta name="theme-color" content="#1a73e8">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f4f6fa;--card:#ffffff;--ink:#1c2430;--muted:#5f6b7a;--line:#dde3ec;
+  --brand:#1a73e8;--brand-ink:#ffffff;--brand-soft:#e8f0fe;
+  --ok:#188038;--ok-soft:#e6f4ea;--warn:#b06000;--warn-soft:#fef7e0;--err:#c5221f;--err-soft:#fce8e6;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111418;--card:#1b2027;--ink:#e6e9ee;--muted:#9aa4b2;--line:#2c333d;
+  --brand:#8ab4f8;--brand-ink:#0b1b33;--brand-soft:#1f2d44;
+  --ok:#81c995;--ok-soft:#18301f;--warn:#fdd663;--warn-soft:#3a3118;--err:#f28b82;--err-soft:#3b1d1b;
+  --shadow:none;
+}}
+:root[data-theme="dark"]{
+  --bg:#111418;--card:#1b2027;--ink:#e6e9ee;--muted:#9aa4b2;--line:#2c333d;
+  --brand:#8ab4f8;--brand-ink:#0b1b33;--brand-soft:#1f2d44;
+  --ok:#81c995;--ok-soft:#18301f;--warn:#fdd663;--warn-soft:#3a3118;--err:#f28b82;--err-soft:#3b1d1b;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+a{color:var(--brand)}
+header{background:var(--brand);color:var(--brand-ink);padding:14px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0;flex:1;font-weight:650}
+header img{width:30px;height:30px}
+main{max-width:760px;margin:0 auto;padding:14px 16px 120px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.step{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--brand);color:var(--brand-ink);font-size:13px;font-weight:700;flex:none}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;justify-content:center;text-decoration:none;min-height:40px}
+button:hover{border-color:var(--brand)}
+button.primary,.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+button.ghost{background:transparent}
+button.danger{color:var(--err)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grow{flex:1 1 auto}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:40px;max-width:100%}
+textarea{width:100%;min-height:110px;resize:vertical}
+label.f{display:block;margin:10px 0 4px;font-size:13px;color:var(--muted);font-weight:600}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:22px 14px;text-align:center;cursor:pointer;transition:.15s}
+.drop.over,.drop:hover{border-color:var(--brand);background:var(--brand-soft)}
+.drop b{display:block;font-size:16px;margin-bottom:4px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chip{border-radius:999px;padding:5px 12px;min-height:32px;font-size:13px}
+.rem{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+.rem input{width:76px}
+.acct{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--brand-soft)}
+.acct img{width:36px;height:36px;border-radius:50%}
+.ev{border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start}
+.ev input[type=checkbox]{width:20px;height:20px;min-height:0;margin-top:3px}
+.ev .t{font-weight:650;word-break:break-word}
+.ev .meta{font-size:13px;color:var(--muted);word-break:break-word}
+.ev .acts{display:flex;flex-direction:column;gap:6px}
+.ev .acts button{padding:6px 10px;min-height:34px;font-size:13px}
+.badge{display:inline-block;font-size:12px;font-weight:600;border-radius:6px;padding:1px 8px;margin-top:4px}
+.b-ok{background:var(--ok-soft);color:var(--ok)}.b-dup{background:var(--warn-soft);color:var(--warn)}
+.b-err{background:var(--err-soft);color:var(--err)}.b-run{background:var(--brand-soft);color:var(--brand)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));z-index:6}
+.bar .in{max-width:760px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.bar .in .primary{flex:1}
+.notice{background:var(--warn-soft);color:var(--ink);border-radius:10px;padding:12px;font-size:14px}
+.notice code{word-break:break-all}
+dialog{border:none;border-radius:16px;padding:0;width:min(560px,calc(100vw - 24px));background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .hd{padding:14px 16px;border-bottom:1px solid var(--line);font-weight:650}
+dialog .bd{padding:4px 16px 14px;max-height:70vh;overflow:auto}
+dialog .ft{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.grid2 input,.grid2 select{width:100%}
+.full{width:100%}
+#toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.2s;z-index:20;max-width:calc(100vw - 32px)}
+#toast.show{opacity:1}
+.empty{text-align:center;padding:18px;color:var(--muted)}
+details summary{cursor:pointer;font-weight:600;margin:6px 0}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.mode{display:flex;gap:8px;align-items:flex-start;border:1.5px solid var(--line);border-radius:12px;padding:10px;cursor:pointer}
+.mode.on{border-color:var(--brand);background:var(--brand-soft)}
+.mode input{width:18px;height:18px;min-height:0;margin:2px 0 0;flex:none}
+.mode small{display:block;color:var(--muted);font-size:12.5px;line-height:1.35;margin-top:2px}
+.admin{margin-top:12px}
+@media (max-width:420px){.modes{grid-template-columns:1fr}}
+.sw{display:flex;align-items:center;gap:8px;margin:8px 0}
+.sw input{width:20px;height:20px;min-height:0}
+@media (max-width:480px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <img src="icon.svg" alt="">
+  <h1>Kalender Otomatis</h1>
+</header>
+
+<main>
+  <!-- 1. Akun -->
+  <section class="card" id="cardAuth">
+    <h2><span class="step">1</span> Alamat email Google Anda</h2>
+    <div id="authBox"></div>
+  </section>
+
+  <!-- 2. Berkas -->
+  <section class="card">
+    <h2><span class="step">2</span> Masukkan berkas jadwal</h2>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Pilih berkas">
+      <b>📂 Ketuk untuk memilih berkas</b>
+      <span class="small muted">atau seret ke sini — Excel (.xlsx/.xls), CSV, PDF, Word (.docx), Kalender (.ics), Teks (.txt)</span>
+    </div>
+    <input type="file" id="file" multiple hidden accept=".xlsx,.xls,.ods,.csv,.pdf,.docx,.ics,.txt,text/calendar,text/csv,application/pdf">
+    <details style="margin-top:10px">
+      <summary>Atau tempel teks (misal isi surat undangan / pesan WA)</summary>
+      <textarea id="paste" placeholder="Contoh:&#10;Perihal : Undangan Rapat Evaluasi Mutu&#10;Hari/Tanggal : Senin, 23 November 2026&#10;Waktu : 09.00 - 11.00 WIB&#10;Tempat : Aula Lantai 3"></textarea>
+      <div class="row" style="margin-top:8px"><button id="btnPaste">Baca teks</button></div>
+    </details>
+    <p class="small muted" style="margin:10px 0 0">Punya banyak jadwal? <a href="#" id="tplLink">Unduh template Excel</a>, isi, lalu unggah kembali.</p>
+  </section>
+
+  <!-- 3. Alarm -->
+  <section class="card">
+    <h2><span class="step">3</span> Pengaturan alarm / pengingat</h2>
+    <div class="notice small" id="inviteNote" style="display:none">Alarm mengikuti setelan notifikasi Google Kalender Anda (bawaan Google: 🔔 30 menit sebelum acara).
+      <div id="loginOpt" style="margin-top:8px"><button type="button" class="small" id="btnUseLogin">🔔 Atur alarm sendiri</button>
+      <div class="small muted" style="margin-top:4px">Perlu konfirmasi akun Google sekali.</div></div></div>
+    <p class="small" id="inviteBack" style="display:none;margin:0 0 8px"><a href="#" id="btnUseInvite">← Tidak perlu alarm khusus, pakai email saja</a></p>
+    <div id="remControls">
+    <div class="sw"><input type="checkbox" id="useDefault"><label for="useDefault">Pakai pengingat bawaan Google Kalender saya</label></div>
+    <div id="globalRem"></div>
+    </div>
+    <details>
+      <summary>Pengaturan lain</summary>
+      <div class="grid2">
+        <div><label class="f" for="tz">Zona waktu</label>
+          <select id="tz">
+            <option value="Asia/Jakarta">WIB (Asia/Jakarta)</option>
+            <option value="Asia/Makassar">WITA (Asia/Makassar)</option>
+            <option value="Asia/Jayapura">WIT (Asia/Jayapura)</option>
+          </select></div>
+        <div><label class="f" for="dur">Lama acara jika jam selesai kosong</label>
+          <select id="dur">
+            <option value="30">30 menit</option><option value="60">1 jam</option><option value="90">1,5 jam</option>
+            <option value="120">2 jam</option><option value="180">3 jam</option><option value="240">4 jam</option>
+          </select></div>
+        <div><label class="f" for="color">Warna acara</label><select id="color"></select></div>
+        <div><label class="f">&nbsp;</label><div class="sw" style="margin:0"><input type="checkbox" id="skipDup"><label for="skipDup">Lewati jika sudah pernah dimasukkan</label></div></div>
+      </div>
+    </details>
+  </section>
+
+  <!-- 4. Daftar -->
+  <section class="card">
+    <h2><span class="step">4</span> Periksa jadwal lalu kirim</h2>
+    <div class="row" style="margin-bottom:6px">
+      <button id="btnAll" class="ghost small">Pilih semua</button>
+      <button id="btnAdd" class="ghost small">＋ Tambah manual</button>
+      <span class="grow"></span>
+      <button id="btnIcs" class="ghost small" title="Unduh berkas .ics untuk aplikasi kalender lain">⬇ .ics</button>
+      <button id="btnClear" class="ghost small danger">Hapus daftar</button>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <p class="small muted" style="text-align:center">Berkas dibaca di perangkat Anda sendiri. Hanya jadwal yang Anda kirim yang masuk ke Google Kalender akun Anda.</p>
+</main>
+
+<div class="bar"><div class="in">
+  <span id="selInfo" class="small muted"></span>
+  <button class="primary" id="btnSend">📅 Masukkan ke Google Kalender</button>
+</div></div>
+
+<dialog id="dlg">
+  <form method="dialog" id="evForm">
+    <div class="hd" id="dlgTitle">Ubah jadwal</div>
+    <div class="bd">
+      <label class="f" for="fTitle">Judul acara</label><input id="fTitle" class="full" required>
+      <div class="sw"><input type="checkbox" id="fAllDay"><label for="fAllDay">Sepanjang hari (tanpa jam)</label></div>
+      <div class="grid2">
+        <div><label class="f" for="fDate">Tanggal</label><input type="date" id="fDate" required></div>
+        <div><label class="f" for="fEndDate">Sampai tanggal</label><input type="date" id="fEndDate"></div>
+        <div class="tm"><label class="f" for="fStart">Jam mulai</label><input type="time" id="fStart"></div>
+        <div class="tm"><label class="f" for="fEnd">Jam selesai</label><input type="time" id="fEnd"></div>
+      </div>
+      <label class="f" for="fLoc">Tempat</label><input id="fLoc" class="full">
+      <label class="f" for="fDesc">Keterangan</label><textarea id="fDesc" style="min-height:70px"></textarea>
+      <label class="f" for="fColor">Warna</label><select id="fColor" class="full"></select>
+      <label class="f">Alarm untuk acara ini</label>
+      <div class="sw"><input type="radio" name="fRemMode" id="fRemG" value="g"><label for="fRemG">Ikuti pengaturan umum (langkah 3)</label></div>
+      <div class="sw"><input type="radio" name="fRemMode" id="fRemC" value="c"><label for="fRemC">Atur khusus</label></div>
+      <div id="fRem"></div>
+    </div>
+    <div class="ft">
+      <button value="cancel" formnovalidate>Batal</button>
+      <button value="ok" class="primary" id="fSave">Simpan</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgInfo">
+  <form method="dialog">
+    <div class="hd">Satu langkah lagi: konfirmasi di email</div>
+    <div class="bd" id="infoBody"></div>
+    <div class="ft"><button value="ok" class="primary">Mengerti</button></div>
+  </form>
+</dialog>
+
+<div id="toast" role="status"></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+"use strict";
+/* ====== Konfigurasi ====== */
+// Isi Client ID OAuth dari Google Cloud Console di sini setelah setup (lihat PANDUAN-SETUP.md).
+const DEFAULT_CLIENT_ID = "";
+// Isi URL Web App Google Apps Script (apps-script/Code.gs) untuk mode "Kirim undangan".
+const DEFAULT_INVITE_URL = "";
+const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly openid email profile";
+const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const API = "https://www.googleapis.com/calendar/v3";
+const LIB = {
+  xlsx: "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+  pdf: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+  pdfWorker: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+  mammoth: "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"
+};
+const COLORS = [["","Bawaan kalender",""],["1","Lavender","#7986cb"],["2","Hijau sage","#33b679"],["3","Ungu","#8e24aa"],["4","Merah muda","#e67c73"],["5","Kuning","#f6bf26"],["6","Oranye","#f4511e"],["7","Biru muda","#039be5"],["8","Abu-abu","#616161"],["9","Biru tua","#3f51b5"],["10","Hijau tua","#0b8043"],["11","Merah","#d50000"]];
+
+/* ====== Util ====== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2, "0");
+const ymd = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const SS = {
+  get(k) { try { return JSON.parse(sessionStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+function toast(msg, ms = 3200) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), ms); }
+function addDays(ds, n) { const [y, m, d] = ds.split("-").map(Number); const dt = new Date(Date.UTC(y, m - 1, d + n)); return ymd(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate()); }
+function addMinutes(ds, tm, mins) {
+  const [y, m, d] = ds.split("-").map(Number); const [h, mi] = tm.split(":").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, h, mi + mins));
+  return { date: ymd(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate()), time: `${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}` };
+}
+function hash(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
+const uid = () => Math.random().toString(36).slice(2, 10);
+function loadScript(src) {
+  loadScript.c = loadScript.c || {};
+  if (!loadScript.c[src]) loadScript.c[src] = new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("Gagal memuat pustaka. Periksa koneksi internet.")); document.head.appendChild(s); });
+  return loadScript.c[src];
+}
+
+/* ====== State ====== */
+const state = {
+  events: LS.get("kal_events", []),
+  token: null, tokenExp: 0, user: null, calendars: [],
+  settings: Object.assign({
+    clientId: DEFAULT_CLIENT_ID, inviteUrl: DEFAULT_INVITE_URL, email: "", mode: "invite", calendarId: "primary", tz: "Asia/Jakarta", duration: 60, color: "",
+    skipDup: true, useDefault: false,
+    reminders: [{ method: "popup", minutes: 30 }, { method: "popup", minutes: 1440 }]
+  }, LS.get("kal_settings", {}))
+};
+if (DEFAULT_CLIENT_ID && !state.settings.clientId) state.settings.clientId = DEFAULT_CLIENT_ID;
+if (DEFAULT_INVITE_URL && !state.settings.inviteUrl) state.settings.inviteUrl = DEFAULT_INVITE_URL;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Bawaan: cukup email (undangan + konfirmasi "Ya"). Mode login hanya bila pengguna memilih alarm khusus di langkah 3.
+function curMode() { const s = state.settings; if (!s.inviteUrl) return "login"; if (!s.clientId) return "invite"; return s.mode === "login" ? "login" : "invite"; }
+function setMode(m) { state.settings.mode = m; saveSettings(); renderAuth(); if (m === "login" && !loggedInAsEmail()) { if (!EMAIL_RE.test(state.settings.email || "")) { toast("Ketik email Anda di langkah 1 dulu."); const em = $("#email"); if (em) { em.scrollIntoView({ behavior: "smooth", block: "center" }); em.focus(); } return; } login(false); } }
+function loggedInAsEmail() { return tokenValid() && state.user && (!state.settings.email || state.user.email.toLowerCase() === state.settings.email.toLowerCase()); }
+const saveSettings = () => LS.set("kal_settings", state.settings);
+const saveEvents = () => LS.set("kal_events", state.events.map(e => Object.assign({}, e, e.status === "run" ? { status: "" } : {})));
+
+/* ====== Pengenalan tanggal & jam ====== */
+const MONTHS = { januari:1, jan:1, january:1, februari:2, pebruari:2, feb:2, peb:2, february:2, maret:3, mar:3, march:3, april:4, apr:4,
+  mei:5, may:5, juni:6, jun:6, june:6, juli:7, jul:7, july:7, agustus:8, agu:8, agt:8, ags:8, agst:8, aug:8, august:8,
+  september:9, sep:9, sept:9, okt:10, oktober:10, oct:10, october:10, november:11, nopember:11, nov:11, nop:11,
+  desember:12, des:12, dec:12, december:12 };
+const DAYS_RE = /\b(senin|selasa|rabu|kamis|jum'?at|sabtu|minggu|ahad|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi;
+
+function guessYear(m, d) {
+  const now = new Date(); let y = now.getFullYear();
+  const cand = new Date(y, m - 1, d);
+  if (now - cand > 60 * 864e5) y++; // sudah lewat > 2 bulan → anggap tahun depan
+  return y;
+}
+function validDate(y, m, d) { if (m < 1 || m > 12 || d < 1) return false; return d <= new Date(y, m, 0).getDate(); }
+
+function findDates(s) {
+  const out = [], taken = [];
+  const free = (i, l) => !taken.some(([a, b]) => i < b && i + l > a);
+  const add = (o) => { if (validDate(o.y, o.m, o.d) && free(o.i, o.len)) { out.push(o); taken.push([o.i, o.i + o.len]); } };
+  let m;
+  const reText = /(\d{1,2})(?:\s*(?:-|–|—|s\.?\s?d\.?|sampai|hingga|sd|dan)\s*(\d{1,2}))?\s+([A-Za-z]{3,9})\.?,?\s*(\d{4})?/g;
+  while ((m = reText.exec(s))) {
+    const mon = MONTHS[m[3].toLowerCase()]; if (!mon) continue;
+    const d = +m[1], d2 = m[2] ? +m[2] : null, y = m[4] ? +m[4] : guessYear(mon, d);
+    add({ y, m: mon, d, d2: d2 && d2 > d && validDate(y, mon, d2) ? d2 : null, i: m.index, len: m[0].trimEnd().length });
+  }
+  const reIso = /\b(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\b/g;
+  while ((m = reIso.exec(s))) add({ y: +m[1], m: +m[2], d: +m[3], i: m.index, len: m[0].length });
+  const reNum = /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4}|\d{2})\b/g;
+  while ((m = reNum.exec(s))) { let y = +m[3]; if (y < 100) y += 2000; add({ y, m: +m[2], d: +m[1], i: m.index, len: m[0].length }); }
+  return out.sort((a, b) => a.i - b.i);
+}
+function blankDates(s, ds) { let r = s; (ds || findDates(s)).forEach(o => { r = r.slice(0, o.i) + " ".repeat(o.len) + r.slice(o.i + o.len); }); return r; }
+function findTimes(s, ds) {
+  const t = blankDates(s, ds), out = [];
+  const re = /(?:^|[^\d])([01]?\d|2[0-3])\s?[.:]\s?([0-5]\d)(?![\d])/g; let m;
+  while ((m = re.exec(t))) out.push(`${pad(m[1])}:${m[2]}`);
+  if (!out.length) { const m2 = t.match(/\b(?:pukul|pkl\.?|jam)\s*([01]?\d|2[0-3])\b(?!\s?[.:]\d)/i); if (m2) out.push(`${pad(m2[1])}:00`); }
+  return out;
+}
+function cleanTitle(s) {
+  let t = blankDates(s);
+  t = t.replace(/(?:^|[^\d])([01]?\d|2[0-3])\s?[.:]\s?([0-5]\d)(?!\d)/g, " ");
+  t = t.replace(/\b(?:pukul|pkl\.?|jam)\s*([01]?\d|2[0-3])\b/gi, " ");
+  t = t.replace(DAYS_RE, " ");
+  t = t.replace(/\b(assalamu'?\s?alaikum(?:\s*wr\.?\s*wb\.?)?|selamat (?:pagi|siang|sore|malam)|mengingatkan(?: kembali)?|diingatkan|reminder|besok|lusa|hari ini|nanti)\b[,.!]?/gi, " ");
+  t = t.replace(/\b(pukul|pkl|jam|wib|wita|wit|s\.?\s?d\.?|sd|sampai|hingga|selesai|hari|tanggal|tgl|waktu|date|time)\b\.?/gi, " ");
+  t = t.replace(/\s+/g, " ").replace(/^[\s,;:|\-–—\/.()]+|[\s,;:|\-–—\/(]+$/g, "").trim();
+  return t;
+}
+function mkEvent(o) {
+  const d = o.date;
+  const date = ymd(d.y, d.m, d.d);
+  const times = o.times || [];
+  let title = String(o.title || "").trim() || "Acara"; title = title.charAt(0).toUpperCase() + title.slice(1);
+  return {
+    id: uid(), sel: true, title, date,
+    endDate: o.endDate || (d.d2 ? ymd(d.y, d.m, d.d2) : date),
+    allDay: !times.length, start: times[0] || "", end: times[1] || "",
+    location: (o.location || "").trim(), desc: (o.desc || "").trim(),
+    tz: o.tz || "", reminders: o.reminders || null, recurrence: o.recurrence || null, color: "", status: "", link: "", src: o.src || ""
+  };
+}
+
+/* ---- Teks bebas (PDF, Word, TXT, tempel) ---- */
+function textToEvents(text) {
+  const lines = text.split(/\r?\n/).map(l => l.replace(/[\t ]+/g, " ").trim());
+  const LABEL = /^(?:[\d.)\-•*]+\s*)?(hari\s*(?:[\/,&]|dan)?\s*(?:tanggal|tgl)|hari|tanggal|tgl\.?|waktu|pukul|jam|tempat|lokasi|acara|agenda|kegiatan|nama kegiatan|judul|topik|tema|perihal|hal)\s*[:：=]\s*(.*)$/i;
+  const kindOf = k => /hari|tanggal|tgl/.test(k) ? "date" : /waktu|pukul|jam/.test(k) ? "time" : /tempat|lokasi/.test(k) ? "place" : /perihal|^hal$/.test(k) ? "subject" : "title";
+  const blocks = []; let cur = null, subject = "";
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(LABEL); if (!m) continue;
+    const kind = kindOf(m[1].toLowerCase().replace(/\s+/g, " "));
+    let val = m[2].trim();
+    if (!val && lines[i + 1] && !LABEL.test(lines[i + 1])) val = lines[i + 1];
+    if (kind === "subject") { subject = subject || val; continue; }
+    if (kind === "date") {
+      const ds = findDates(val); if (!ds.length) continue;
+      if (cur && cur.date) { blocks.push(cur); cur = null; }
+      cur = cur || { times: [], title: "", place: "" };
+      cur.date = ds[0]; cur.times = cur.times.concat(findTimes(val, ds));
+      if (ds[1] && !ds[0].d2) cur.endDate = ymd(ds[1].y, ds[1].m, ds[1].d);
+      continue;
+    }
+    cur = cur || { date: null, times: [], title: "", place: "" };
+    if (kind === "time") { const ds = findDates(val); cur.times = cur.times.concat(findTimes(val, ds)); if (!cur.date && ds.length) cur.date = ds[0]; }
+    else if (kind === "place") cur.place = cur.place || val;
+    else {
+      if (!cur.title) {
+        const isList = /^[\d]+[.)]\s+|^[-•*]\s+/.test(val);
+        let t = val.replace(/^[\d.)\-•*]+\s*/, "");
+        // agenda bertingkat: ambil juga butir berikutnya
+        const extra = [];
+        for (let j = i + 1; j < lines.length && extra.length < 4; j++) { const L = lines[j]; if (!/^[\d]+[.)]\s+\S|^[-•*]\s+\S/.test(L) || LABEL.test(L)) break; extra.push(L.replace(/^[\d.)\-•*]+\s*/, "")); }
+        if (!val && extra.length) t = extra.shift();
+        // Acara berupa daftar bernomor → itu agenda; judul diambil dari Perihal
+        if (isList || (!val && extra.length)) { cur.agenda = [t].concat(extra); cur.title = ""; cur.listOnly = true; }
+        else { cur.title = t; if (extra.length) cur.agenda = extra; }
+      }
+    }
+  }
+  if (cur && cur.date) blocks.push(cur);
+  if (blocks.length) {
+    const subj = subject.replace(/^(surat\s+)?undangan\s*(untuk\s+|menghadiri\s+|mengikuti\s+)?/i, "").trim();
+    return blocks.map(b => {
+      const desc = [];
+      if (subj && b.title && subj !== b.title) desc.push("Perihal: " + subject);
+      if (b.agenda) desc.push((b.listOnly ? "Agenda:" : "Agenda lain:") + "\n- " + b.agenda.join("\n- "));
+      const title = b.title || subj || (b.agenda && b.agenda[0]) || "Acara";
+      return mkEvent({ date: b.date, times: b.times.slice(0, 2), title: title.charAt(0).toUpperCase() + title.slice(1), location: b.place, desc: desc.join("\n\n"), endDate: b.endDate });
+    });
+  }
+  // Mode per baris
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i]; if (!L) continue;
+    const ds = findDates(L); if (!ds.length) continue;
+    let times = findTimes(L, ds);
+    if (!times.length && lines[i + 1] && !findDates(lines[i + 1]).length) { const t2 = findTimes(lines[i + 1]); if (t2.length && cleanTitle(lines[i + 1]).length < 4) times = t2; }
+    let title = cleanTitle(L);
+    if (title.length < 3) { for (let j = i - 1; j >= Math.max(0, i - 2); j--) { if (lines[j] && !findDates(lines[j]).length) { title = cleanTitle(lines[j]); break; } } }
+    const parts = title.split(/\s*[|;]\s*/).filter(Boolean);
+    let loc = ""; const lm = title.match(/\b(?:di|tempat|lokasi)\s*[:]?\s+(.+)$/i);
+    if (parts.length > 1) { title = parts[0]; loc = parts.slice(1).join(", "); } else if (lm) { loc = lm[1]; title = title.slice(0, lm.index).trim() || title; }
+    const ev = mkEvent({ date: ds[0], times: times.slice(0, 2), title, location: loc });
+    if (ds[1] && !ds[0].d2) { const e2 = ymd(ds[1].y, ds[1].m, ds[1].d); if (e2 > ev.date) ev.endDate = e2; }
+    out.push(ev);
+  }
+  return out;
+}
+
+/* ---- Tabel (Excel / CSV) ---- */
+const SYN = [
+  ["endDate", ["tanggal selesai", "tgl selesai", "tanggal akhir", "tgl akhir", "sampai tanggal", "end date"]],
+  ["end", ["jam selesai", "waktu selesai", "jam akhir", "selesai", "berakhir", "end time", "end", "sampai"]],
+  ["date", ["hari/tanggal", "hari, tanggal", "hari tanggal", "tanggal mulai", "tgl mulai", "tanggal", "tgl", "start date", "date"]],
+  ["start", ["jam mulai", "waktu mulai", "mulai", "start time", "start", "jam", "waktu", "pukul"]],
+  ["title", ["nama kegiatan", "nama acara", "judul", "acara", "kegiatan", "agenda", "perihal", "topik", "title", "summary", "subject", "event"]],
+  ["location", ["tempat", "lokasi", "ruangan", "ruang", "location", "venue"]],
+  ["desc", ["keterangan", "deskripsi", "catatan", "uraian", "peserta", "description", "notes"]],
+  ["alarm", ["alarm", "pengingat", "reminder", "ingatkan"]]
+];
+function mapHeader(row) {
+  const cells = row.map(c => String(c == null ? "" : c).toLowerCase().replace(/\s+/g, " ").trim());
+  const map = {}, used = new Set();
+  for (const exact of [true, false]) for (const [key, syn] of SYN) {
+    if (key in map) continue;
+    for (let c = 0; c < cells.length; c++) {
+      if (used.has(c) || !cells[c]) continue;
+      if (syn.some(s => exact ? cells[c] === s : (cells[c].includes(s) && s.length > 2))) { map[key] = c; used.add(c); break; }
+    }
+  }
+  return map;
+}
+function serialToParts(n) { const dt = new Date(Math.round((n - 25569) * 864e5)); return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() }; }
+function cellDate(v) {
+  if (typeof v === "number" && v > 59 && v < 2958466) { const p = serialToParts(v); return { date: Object.assign(p, { i: 0, len: 0 }), time: v % 1 ? minToTime(Math.round((v % 1) * 1440)) : "" }; }
+  const s = String(v || ""); const ds = findDates(s); if (!ds.length) return null;
+  return { date: ds[0], date2: ds[1], times: findTimes(s, ds) };
+}
+const minToTime = m => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+function cellTimes(v) {
+  if (typeof v === "number") { if (v < 1) return [minToTime(Math.round(v * 1440))]; if (v <= 24 && Number.isInteger(v)) return [`${pad(v)}:00`]; if (v > 59) return v % 1 ? [minToTime(Math.round((v % 1) * 1440))] : []; return []; }
+  return findTimes(String(v || ""));
+}
+function parseAlarm(v) {
+  const s = String(v == null ? "" : v).toLowerCase().trim(); if (!s) return null;
+  if (/^(tidak|tanpa|none|no|-)$/.test(s)) return [];
+  const out = [];
+  s.split(/[,;+&]|\bdan\b/).forEach(p => {
+    const m = p.match(/(\d+(?:[.,]\d+)?)\s*(minggu|mgg|menit|mnt|min|jam|hours|hour|hari|hr|days|day|weeks|week|m|j|h|d|w)?\b/); if (!m) return;
+    const n = parseFloat(m[1].replace(",", ".")); const u = m[2] || "menit";
+    const mult = /^(jam|j|hour|hours|h)$/.test(u) ? 60 : /^(hari|hr|day|days|d)$/.test(u) ? 1440 : /^(minggu|mgg|week|weeks|w)$/.test(u) ? 10080 : 1;
+    out.push({ method: /email/.test(p) ? "email" : "popup", minutes: Math.min(40320, Math.round(n * mult)) });
+  });
+  return out.length ? out.slice(0, 5) : null;
+}
+function rowsToEvents(rows) {
+  let hi = -1, map = null;
+  for (let r = 0; r < Math.min(rows.length, 15); r++) { const m = mapHeader(rows[r]); if (Object.keys(m).length >= 2 && ("date" in m)) { hi = r; map = m; break; } }
+  if (hi < 0) return textToEvents(rows.map(r => r.filter(c => c !== "" && c != null).join(" | ")).join("\n"));
+  const out = [];
+  for (let r = hi + 1; r < rows.length; r++) {
+    const row = rows[r]; const g = k => (k in map ? row[map[k]] : "");
+    if (!row.some(c => String(c).trim())) continue;
+    const cd = cellDate(g("date")); if (!cd) continue;
+    let times = cd.times ? cd.times.slice() : (cd.time ? [cd.time] : []);
+    if ("start" in map) { const t = cellTimes(g("start")); if (t.length) times = t; }
+    if ("end" in map) { const t = cellTimes(g("end")); if (t.length && times[0]) times = [times[0], t[0]]; }
+    let endDate = "";
+    if ("endDate" in map) { const e = cellDate(g("endDate")); if (e) endDate = ymd(e.date.y, e.date.m, e.date.d); }
+    else if (cd.date2) endDate = ymd(cd.date2.y, cd.date2.m, cd.date2.d);
+    const ev = mkEvent({ date: cd.date, times: times.slice(0, 2), title: String(g("title") || ""), location: String(g("location") || ""), desc: String(g("desc") || ""), reminders: "alarm" in map ? parseAlarm(g("alarm")) : null });
+    if (endDate && endDate >= ev.date) ev.endDate = endDate;
+    out.push(ev);
+  }
+  return out;
+}
+
+/* ---- ICS ---- */
+function tzParts(date, tz) {
+  const p = {}; new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).forEach(x => p[x.type] = x.value);
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` };
+}
+function icsVal(v, params) {
+  const allDay = /VALUE=DATE(?!-)/i.test(params) || /^\d{8}$/.test(v);
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/); if (!m) return null;
+  if (allDay || !m[4]) return { date: `${m[1]}-${m[2]}-${m[3]}`, allDay: true };
+  if (m[7]) { const d = new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5])); return Object.assign(tzParts(d, state.settings.tz), { allDay: false }); }
+  const tzm = params.match(/TZID=([^;:]+)/i);
+  return { date: `${m[1]}-${m[2]}-${m[3]}`, time: `${m[4]}:${m[5]}`, allDay: false, tz: tzm ? tzm[1].replace(/"/g, "") : "" };
+}
+function icsDur(s) { const m = s.match(/(-)?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?/); if (!m) return null; return (+(m[2] || 0)) * 10080 + (+(m[3] || 0)) * 1440 + (+(m[4] || 0)) * 60 + (+(m[5] || 0)); }
+const icsUnesc = s => s.replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1");
+function icsToEvents(text) {
+  const lines = text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/); const out = []; let ev = null, alarm = null;
+  for (const line of lines) {
+    if (line === "BEGIN:VEVENT") { ev = { rem: [] }; continue; }
+    if (line === "END:VEVENT") {
+      if (ev && ev.s) {
+        const e = mkEvent({ date: { y: 0, m: 0, d: 0 }, title: ev.summary, location: ev.location, desc: ev.desc });
+        e.date = ev.s.date; e.allDay = ev.s.allDay; e.tz = ev.s.tz || "";
+        if (!e.allDay) e.start = ev.s.time;
+        if (ev.e) { if (e.allDay) e.endDate = ev.e.date > e.date ? addDays(ev.e.date, -1) : e.date; else { e.endDate = ev.e.date; e.end = ev.e.time; } } else e.endDate = e.date;
+        if (ev.rem.length) e.reminders = ev.rem.slice(0, 5);
+        if (ev.rrule) e.recurrence = ["RRULE:" + ev.rrule];
+        out.push(e);
+      }
+      ev = null; continue;
+    }
+    if (!ev) continue;
+    if (line === "BEGIN:VALARM") { alarm = { method: "popup" }; continue; }
+    if (line === "END:VALARM") { if (alarm && alarm.minutes != null && alarm.minutes >= 0) ev.rem.push({ method: alarm.method, minutes: Math.min(40320, alarm.minutes) }); alarm = null; continue; }
+    const ci = line.indexOf(":"); if (ci < 0) continue;
+    const left = line.slice(0, ci), val = line.slice(ci + 1), name = left.split(";")[0].toUpperCase(), params = left.slice(name.length);
+    if (alarm) { if (name === "TRIGGER") { const d = icsDur(val); if (d != null) alarm.minutes = val.startsWith("-") || d === 0 ? d : -1; } else if (name === "ACTION" && /EMAIL/i.test(val)) alarm.method = "email"; continue; }
+    if (name === "SUMMARY") ev.summary = icsUnesc(val);
+    else if (name === "LOCATION") ev.location = icsUnesc(val);
+    else if (name === "DESCRIPTION") ev.desc = icsUnesc(val);
+    else if (name === "DTSTART") ev.s = icsVal(val, params);
+    else if (name === "DTEND") ev.e = icsVal(val, params);
+    else if (name === "RRULE") ev.rrule = val;
+  }
+  return out;
+}
+
+/* ---- Pembaca berkas ---- */
+async function readFile(f) {
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  if (ext === "ics" || f.type === "text/calendar") return icsToEvents(await f.text());
+  if (["xlsx", "xls", "ods", "csv"].includes(ext)) {
+    await loadScript(LIB.xlsx);
+    const wb = ext === "csv" ? XLSX.read(await f.text(), { type: "string", raw: true }) : XLSX.read(await f.arrayBuffer(), { type: "array" });
+    let all = [];
+    wb.SheetNames.forEach(n => { const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: "" }); all = all.concat(rowsToEvents(rows)); });
+    return all;
+  }
+  if (ext === "pdf") {
+    await loadScript(LIB.pdf); pdfjsLib.GlobalWorkerOptions.workerSrc = LIB.pdfWorker;
+    const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise; let text = "";
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const tc = await (await pdf.getPage(p)).getTextContent(); let lastY = null;
+      for (const it of tc.items) { const y = it.transform[5]; if (lastY !== null && Math.abs(y - lastY) > 3) text += "\n"; else if (text && !/\s$/.test(text)) text += " "; text += it.str; if (it.hasEOL) { text += "\n"; lastY = null; } else lastY = y; }
+      text += "\n";
+    }
+    if (!text.replace(/\s/g, "")) throw new Error("PDF ini berupa gambar hasil scan, teksnya tidak bisa dibaca. Ketik/tempel jadwalnya manual.");
+    return textToEvents(text);
+  }
+  if (ext === "docx") { await loadScript(LIB.mammoth); const r = await mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() }); return textToEvents(r.value); }
+  if (ext === "txt" || f.type.startsWith("text/")) return textToEvents(await f.text());
+  if (ext === "doc") throw new Error("Format .doc lama belum didukung. Simpan ulang sebagai .docx atau PDF.");
+  throw new Error("Format berkas belum didukung: ." + ext);
+}
+const evKey = e => hash([e.title.toLowerCase().trim(), e.date, e.allDay ? "" : e.start].join("|"));
+function addEvents(list, src) {
+  const have = new Set(state.events.map(evKey)); let n = 0;
+  list.forEach(e => { if (src) e.src = src; const k = evKey(e); if (!have.has(k)) { have.add(k); state.events.push(e); n++; } });
+  state.events.sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")));
+  saveEvents(); renderList(); return n;
+}
+async function handleFiles(files) {
+  for (const f of files) {
+    try {
+      toast("Membaca " + f.name + " …", 8000);
+      const evs = await readFile(f); const n = addEvents(evs, f.name);
+      toast(evs.length ? `${n} jadwal baru dari ${f.name}${evs.length > n ? ` (${evs.length - n} sudah ada di daftar)` : ""}` : `Tidak ditemukan tanggal di ${f.name}. Coba tempel teksnya atau tambah manual.`, 5000);
+    } catch (e) { console.error(e); toast("⚠ " + e.message, 6000); }
+  }
+  if (state.events.length) document.querySelector("#list").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ====== Alarm ====== */
+const UNITS = [["menit", 1], ["jam", 60], ["hari", 1440], ["minggu", 10080]];
+function splitMin(m) { for (let i = UNITS.length - 1; i > 0; i--) if (m && m % UNITS[i][1] === 0) return [m / UNITS[i][1], UNITS[i][1]]; return [m, 1]; }
+function remText(r) { if (!r.minutes) return (r.method === "email" ? "✉ " : "🔔 ") + "saat mulai"; const [n, u] = splitMin(r.minutes); return (r.method === "email" ? "✉ " : "🔔 ") + n + " " + UNITS.find(x => x[1] === u)[0] + " sebelum"; }
+function reminderEditor(box, arr, onChange) {
+  const draw = () => {
+    box.innerHTML = arr.map((r, i) => { const [n, u] = splitMin(r.minutes); return `<div class="rem" data-i="${i}">
+      <select data-k="method" aria-label="Jenis"><option value="popup"${r.method === "popup" ? " selected" : ""}>🔔 Notifikasi / alarm HP</option><option value="email"${r.method === "email" ? " selected" : ""}>✉ Email</option></select>
+      <input type="number" min="0" max="40320" data-k="n" value="${n}" aria-label="Jumlah">
+      <select data-k="u" aria-label="Satuan">${UNITS.map(x => `<option value="${x[1]}"${x[1] === u ? " selected" : ""}>${x[0]}</option>`).join("")}</select>
+      <span class="small muted">sebelum</span>
+      <button type="button" class="ghost danger" data-del aria-label="Hapus alarm">✕</button></div>`; }).join("") +
+      (arr.length ? "" : `<p class="small muted" style="margin:6px 0">Tanpa alarm.</p>`) +
+      `<div class="chips">${[[0, "Saat mulai"], [10, "10 mnt"], [30, "30 mnt"], [60, "1 jam"], [120, "2 jam"], [1440, "1 hari"], [10080, "1 minggu"]].map(([m, l]) => `<button type="button" class="chip" data-add="${m}">＋ ${l}</button>`).join("")}</div>
+      <p class="small muted" style="margin:0">Maksimal 5 alarm per acara. Alarm HP muncul dari aplikasi Google Kalender di ponsel.</p>`;
+  };
+  box.oninput = box.onchange = e => {
+    const row = e.target.closest(".rem"); if (!row) return; const i = +row.dataset.i;
+    const n = Math.max(0, +row.querySelector('[data-k="n"]').value || 0), u = +row.querySelector('[data-k="u"]').value;
+    arr[i] = { method: row.querySelector('[data-k="method"]').value, minutes: Math.min(40320, n * u) }; onChange && onChange();
+  };
+  box.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.hasAttribute("data-del")) { arr.splice(+b.closest(".rem").dataset.i, 1); }
+    else if (b.dataset.add != null) { if (arr.length >= 5) return toast("Maksimal 5 alarm."); const m = +b.dataset.add; if (!arr.some(r => r.minutes === m && r.method === "popup")) arr.push({ method: "popup", minutes: m }); arr.sort((a, b) => a.minutes - b.minutes); }
+    else return;
+    draw(); onChange && onChange();
+  };
+  draw();
+}
+function effReminders(ev) { if (Array.isArray(ev.reminders)) return ev.reminders; return state.settings.useDefault ? null : state.settings.reminders; }
+
+/* ====== Google Login ====== */
+let tokenClient = null;
+function tokenValid() { return state.token && Date.now() < state.tokenExp; }
+function initGis() {
+  if (!state.settings.clientId || !(window.google && google.accounts && google.accounts.oauth2)) return false;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: state.settings.clientId, scope: SCOPES,
+    callback: async resp => {
+      if (resp.error) { toast("Login gagal: " + resp.error); return; }
+      if (!google.accounts.oauth2.hasGrantedAllScopes(resp, CAL_SCOPE)) { toast("Izin akses kalender belum dicentang. Silakan masuk lagi dan centang izin kalender.", 7000); return; }
+      state.token = resp.access_token; state.tokenExp = Date.now() + (resp.expires_in - 60) * 1000;
+      SS.set("kal_tok", { t: state.token, x: state.tokenExp });
+      await afterLogin();
+      if (afterLoginAction) { const f = afterLoginAction; afterLoginAction = null; f(); }
+    },
+    error_callback: err => { if (err && err.type !== "popup_closed") toast("Login dibatalkan / diblokir: " + (err.message || err.type)); }
+  });
+  return true;
+}
+let afterLoginAction = null;
+function login(select) {
+  if (!tokenClient && !initGis()) { toast(state.settings.clientId ? "Layanan Google belum termuat, coba sebentar lagi." : "Client ID belum diisi."); return; }
+  const hint = state.settings.email || (state.user && state.user.email) || undefined;
+  tokenClient.requestAccessToken({ prompt: select ? "select_account" : "", login_hint: select ? undefined : hint });
+}
+function logout() {
+  if (state.token && window.google) google.accounts.oauth2.revoke(state.token, () => {});
+  state.token = null; state.user = null; state.calendars = []; SS.set("kal_tok", null); LS.set("kal_user", null); renderAuth();
+}
+async function api(path, opt = {}) {
+  if (!tokenValid()) { state.token = null; renderAuth(); throw Object.assign(new Error("Sesi login habis. Silakan masuk lagi."), { login: true }); }
+  const r = await fetch(path.startsWith("http") ? path : API + path, Object.assign({}, opt, { headers: { Authorization: "Bearer " + state.token, "Content-Type": "application/json" } }));
+  if (r.status === 401) { state.token = null; SS.set("kal_tok", null); renderAuth(); throw Object.assign(new Error("Sesi login habis. Silakan masuk lagi."), { login: true }); }
+  if (!r.ok) { let msg = r.statusText; try { msg = (await r.json()).error.message; } catch (e) {} throw new Error(msg); }
+  return r.status === 204 ? null : r.json();
+}
+async function afterLogin() {
+  try { const u = await api("https://www.googleapis.com/oauth2/v3/userinfo"); state.user = { email: u.email, name: u.name, picture: u.picture }; LS.set("kal_user", state.user); } catch (e) { console.warn(e); }
+  try { const c = await api("/users/me/calendarList?minAccessRole=writer&maxResults=250"); state.calendars = (c.items || []).map(x => ({ id: x.primary ? "primary" : x.id, name: x.summaryOverride || x.summary, primary: !!x.primary, tz: x.timeZone })); }
+  catch (e) { console.warn(e); state.calendars = [{ id: "primary", name: "Kalender utama", primary: true }]; }
+  if (!state.calendars.some(c => c.id === state.settings.calendarId)) state.settings.calendarId = "primary";
+  if (state.user && state.user.email) state.settings.email = state.user.email;
+  saveSettings(); renderAuth();
+  toast("Tersambung ke " + (state.user ? state.user.email : "akun Google"));
+}
+
+/* ====== Render ====== */
+function renderAuth() {
+  const box = $("#authBox"), s = state.settings;
+  const admin = `<details class="admin"><summary class="small muted">⚙ Pengaturan admin</summary>
+      <label class="f" for="cid">OAuth Client ID — untuk "Masuk langsung"</label>
+      <input id="cid" class="full" placeholder="xxxxxxxx.apps.googleusercontent.com" value="${esc(s.clientId)}">
+      <label class="f" for="iurl">URL Apps Script — untuk "Kirim undangan"</label>
+      <input id="iurl" class="full" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(s.inviteUrl)}">
+      <div class="row" style="margin-top:8px"><button class="primary" id="adminSave">Simpan</button></div></details>`;
+  if (!s.clientId && !s.inviteUrl) {
+    box.innerHTML = `<div class="notice"><b>Satu kali pengaturan oleh admin.</b> Isi minimal salah satu: <i>OAuth Client ID</i> (mode Masuk langsung) atau <i>URL Apps Script</i> (mode Kirim undangan). Langkahnya ada di <code>PANDUAN-SETUP.md</code>.</div>` + admin.replace("<details", "<details open");
+    bindAdmin(); return;
+  }
+  const mode = curMode(), linked = mode === "login" && loggedInAsEmail();
+  let html = `<input type="email" id="email" class="full" inputmode="email" autocomplete="email" placeholder="nama@gmail.com" aria-label="Alamat email Google" value="${esc(s.email)}" style="font-size:16px">`;
+  if (mode === "login") {
+    if (linked) {
+      const u = state.user;
+      html += `<div class="acct" style="margin-top:10px">${u.picture ? `<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">` : ""}<div class="grow"><b>✓ Tersambung</b><div class="small muted">${esc(u.email)}</div></div>
+        <button class="ghost small" id="btnOut">Putuskan</button></div>
+        <label class="f" for="calSel">Masukkan ke kalender</label>
+        <select id="calSel" class="full">${state.calendars.map(c => `<option value="${esc(c.id)}"${c.id === s.calendarId ? " selected" : ""}>${esc(c.name)}${c.primary ? " (utama)" : ""}</option>`).join("")}</select>`;
+    } else {
+      html += `<div class="row" style="margin-top:10px"><button class="primary grow" id="btnLogin">Sambungkan email ini</button></div>
+        <p class="small muted" style="margin:6px 0 0">Google akan menampilkan konfirmasi sekali. Berikutnya cukup satu ketukan.</p>`;
+    }
+  } else {
+    html += `<p class="small muted" style="margin:6px 0 0">Jadwal masuk ke Google Kalender email ini setelah Anda menekan <b>Ya</b> di email konfirmasi.</p>`;
+  }
+  box.innerHTML = html + admin;
+  bindAdmin();
+  const em = $("#email");
+  em.onchange = () => {
+    const v = em.value.trim();
+    if (v && !EMAIL_RE.test(v)) { toast("Format email belum benar."); return; }
+    s.email = v; saveSettings(); renderAuth();
+  };
+  if ($("#btnLogin")) $("#btnLogin").onclick = () => {
+    const v = em.value.trim(); if (!EMAIL_RE.test(v)) { toast("Ketik email Google Anda dulu."); em.focus(); return; }
+    s.email = v; saveSettings(); login(false);
+  };
+  if ($("#btnOut")) $("#btnOut").onclick = logout;
+  if ($("#calSel")) $("#calSel").onchange = e => { s.calendarId = e.target.value; saveSettings(); };
+  syncModeUi();
+}
+function bindAdmin() {
+  const b = $("#adminSave"); if (!b) return;
+  b.onclick = () => {
+    const cid = $("#cid").value.trim(), iurl = $("#iurl").value.trim();
+    if (cid && !/\.apps\.googleusercontent\.com$/.test(cid)) return toast("Client ID harus berakhiran .apps.googleusercontent.com");
+    if (iurl && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(iurl)) return toast("URL Apps Script harus berbentuk https://script.google.com/macros/s/…/exec");
+    state.settings.clientId = cid; state.settings.inviteUrl = iurl; saveSettings(); tokenClient = null; initGis(); renderAuth(); toast("Pengaturan admin disimpan.");
+  };
+}
+function syncModeUi() {
+  const inv = curMode() === "invite";
+  const n = $("#inviteNote"); if (n) n.style.display = inv ? "" : "none";
+  const ctl = $("#remControls"); if (ctl) ctl.style.display = inv ? "none" : "";
+  const s = state.settings;
+  $("#loginOpt").style.display = inv && s.clientId ? "" : "none";
+  $("#inviteBack").style.display = !inv && s.inviteUrl ? "" : "none";
+  $("#btnSend").innerHTML = inv ? "📨 Kirim ke Google Kalender" : "📅 Masukkan ke Google Kalender";
+  if (typeof renderList === "function" && $("#list")) renderList();
+}
+function fmtDate(ds) { const [y, m, d] = ds.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
+function whenText(e) {
+  let s = fmtDate(e.date);
+  if (e.endDate && e.endDate !== e.date) s += " – " + fmtDate(e.endDate);
+  if (e.allDay) s += " · sepanjang hari"; else s += ` · ${e.start}${e.end ? "–" + e.end : ""}`;
+  return s;
+}
+function renderList() {
+  const box = $("#list");
+  if (!state.events.length) { box.innerHTML = `<div class="empty">Belum ada jadwal. Masukkan berkas di langkah 2.</div>`; updateBar(); return; }
+  box.innerHTML = state.events.map(e => {
+    const rem = effReminders(e), col = COLORS.find(c => c[0] === (e.color || state.settings.color));
+    const st = e.status === "wait" ? `<span class="badge b-dup">⏳ Menunggu jawaban "Ya" di email</span>` : e.status === "ok" ? `<span class="badge b-ok">${e.via === "invite" ? "✓ Undangan terkirim" : "✓ Sudah masuk kalender"}</span>` : e.status === "dup" ? `<span class="badge b-ok">Sudah ada di kalender — dilewati</span>` : e.status === "err" ? `<span class="badge b-err">Gagal: ${esc(e.err || "")}</span>` : e.status === "run" ? `<span class="badge b-run">Mengirim…</span>` : "";
+    return `<div class="ev" data-id="${e.id}">
+      <input type="checkbox" ${e.sel ? "checked" : ""} aria-label="Pilih ${esc(e.title)}" data-sel>
+      <div><div class="t">${col && col[2] ? `<span class="dot" style="background:${col[2]}"></span>` : ""}${esc(e.title)}</div>
+        <div class="meta">🗓 ${esc(whenText(e))}${e.recurrence ? " · berulang" : ""}</div>
+        ${e.location ? `<div class="meta">📍 ${esc(e.location)}</div>` : ""}
+        <div class="meta">${curMode() === "invite" ? "🔔 alarm sesuai setelan Google Kalender penerima" : (rem === null ? "🔔 pengingat bawaan Google" : rem.length ? esc(rem.map(remText).join(", ")) : "🔕 tanpa alarm") + (Array.isArray(e.reminders) ? " <i>(khusus)</i>" : "")}</div>
+        ${st} ${e.link ? `<a class="small" href="${esc(e.link)}" target="_blank" rel="noopener">Buka di Google Kalender ↗</a>` : ""}</div>
+      <div class="acts"><button data-edit>Ubah</button><button data-del class="danger" aria-label="Hapus">Hapus</button></div></div>`;
+  }).join("");
+  updateBar();
+}
+function updateBar() {
+  const n = state.events.filter(e => e.sel && e.status !== "ok").length;
+  $("#selInfo").textContent = state.events.length ? `${n} dipilih` : "";
+  $("#btnSend").disabled = !n || sending;
+  $("#btnAll").textContent = state.events.length && state.events.every(e => e.sel) ? "Batal pilih semua" : "Pilih semua";
+}
+
+/* ====== Edit dialog ====== */
+let editing = null, editRem = [];
+function openEdit(ev) {
+  editing = ev || null;
+  const e = ev || { title: "", date: new Date().toISOString().slice(0, 10), endDate: "", allDay: false, start: "09:00", end: "10:00", location: "", desc: "", color: "", reminders: null };
+  $("#dlgTitle").textContent = ev ? "Ubah jadwal" : "Tambah jadwal";
+  $("#fTitle").value = e.title; $("#fDate").value = e.date; $("#fEndDate").value = e.endDate && e.endDate !== e.date ? e.endDate : "";
+  $("#fAllDay").checked = e.allDay; $("#fStart").value = e.start; $("#fEnd").value = e.end;
+  $("#fLoc").value = e.location; $("#fDesc").value = e.desc; $("#fColor").value = e.color || "";
+  const custom = Array.isArray(e.reminders);
+  $("#fRemG").checked = !custom; $("#fRemC").checked = custom;
+  editRem = custom ? e.reminders.map(r => Object.assign({}, r)) : state.settings.reminders.map(r => Object.assign({}, r));
+  reminderEditor($("#fRem"), editRem); toggleDlg();
+  $("#dlg").showModal();
+}
+function toggleDlg() {
+  document.querySelectorAll("#dlg .tm").forEach(x => x.style.display = $("#fAllDay").checked ? "none" : "");
+  $("#fRem").style.display = $("#fRemC").checked ? "" : "none";
+}
+$("#fAllDay").onchange = toggleDlg; $("#fRemG").onchange = toggleDlg; $("#fRemC").onchange = toggleDlg;
+$("#dlg").addEventListener("close", () => {
+  if ($("#dlg").returnValue !== "ok") return;
+  const title = $("#fTitle").value.trim(), date = $("#fDate").value; if (!title || !date) return;
+  const e = editing || mkEvent({ date: { y: 2000, m: 1, d: 1 } });
+  const allDay = $("#fAllDay").checked;
+  Object.assign(e, { title, date, endDate: $("#fEndDate").value && $("#fEndDate").value >= date ? $("#fEndDate").value : date,
+    allDay, start: allDay ? "" : ($("#fStart").value || "08:00"), end: allDay ? "" : $("#fEnd").value,
+    location: $("#fLoc").value.trim(), desc: $("#fDesc").value.trim(), color: $("#fColor").value,
+    reminders: $("#fRemC").checked ? editRem.slice() : null });
+  if (e.status !== "ok") { e.status = ""; e.err = ""; }
+  if (!editing) { e.src = "manual"; state.events.push(e); state.events.sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || ""))); }
+  saveEvents(); renderList();
+});
+
+/* ====== Kirim ke Google ====== */
+function toGoogle(ev) {
+  const tz = ev.tz || state.settings.tz;
+  const b = { summary: ev.title || "(Tanpa judul)" };
+  if (ev.location) b.location = ev.location;
+  const desc = [ev.desc, "— dimasukkan lewat Kalender Otomatis"].filter(Boolean).join("\n\n"); b.description = desc;
+  if (ev.allDay) { b.start = { date: ev.date }; b.end = { date: addDays(ev.endDate && ev.endDate > ev.date ? ev.endDate : ev.date, 1) }; }
+  else {
+    const s = ev.start || "08:00"; let ed = ev.endDate || ev.date, e = ev.end;
+    if (!e) { const r = addMinutes(ed === ev.date ? ev.date : ed, s, +state.settings.duration); ed = r.date; e = r.time; }
+    else if (ed === ev.date && e <= s) ed = addDays(ed, 1);
+    b.start = { dateTime: `${ev.date}T${s}:00`, timeZone: tz }; b.end = { dateTime: `${ed}T${e}:00`, timeZone: tz };
+  }
+  const rem = effReminders(ev);
+  b.reminders = rem === null ? { useDefault: true } : { useDefault: false, overrides: rem.slice(0, 5).map(r => ({ method: r.method, minutes: r.minutes })) };
+  if (ev.recurrence) b.recurrence = ev.recurrence;
+  const c = ev.color || state.settings.color; if (c) b.colorId = c;
+  b.extendedProperties = { private: { kalotoId: evKey(ev) } };
+  return b;
+}
+let sending = false;
+async function sendInvites(list) {
+  const s = state.settings; let ok = 0, dup = 0, err = 0;
+  for (let i = 0; i < list.length; i += 50) {
+    const chunk = list.slice(i, i + 50);
+    chunk.forEach(ev => { ev.status = "run"; ev.err = ""; }); renderList();
+    const payload = { email: s.email, events: chunk.map(ev => { const b = toGoogle(ev); return {
+      key: evKey(ev), title: b.summary, location: b.location || "", desc: b.description || "",
+      allDay: !!b.start.date, start: b.start.date || b.start.dateTime, end: b.end.date || b.end.dateTime, tz: b.start.timeZone || s.tz }; }) };
+    try {
+      const r = await fetch(s.inviteUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+      const j = await r.json(); if (!j.ok) throw new Error(j.error || "Layanan undangan menolak permintaan.");
+      chunk.forEach((ev, k) => { const x = j.results[k] || { status: "err", error: "Tidak ada jawaban" };
+        ev.status = x.status === "pending" ? "wait" : x.status; ev.err = x.error || ""; ev.via = "invite";
+        if (x.status === "pending" || x.status === "ok") { ev.sel = false; ok++; } else if (x.status === "dup") { ev.sel = false; dup++; } else err++; });
+    } catch (e) {
+      const msg = /Failed to fetch|NetworkError|Unexpected token/i.test(e.message) ? "Layanan undangan tidak bisa dihubungi (cek URL Apps Script / internet)." : e.message;
+      chunk.forEach(ev => { ev.status = "err"; ev.err = msg; }); err += chunk.length;
+    }
+  }
+  return { ok, dup, err };
+}
+function showConfirmInfo(email, n) {
+  const d = $("#dlgInfo");
+  $("#infoBody").innerHTML = `<p style="font-size:40px;margin:8px 0;text-align:center">📧</p>
+    <p>Email konfirmasi telah dikirim ke <b>${esc(email)}</b>.</p>
+    <ol style="padding-left:20px;margin:8px 0">
+      <li>Buka email <b>"Konfirmasi: tambahkan ${n} jadwal…"</b> (cek juga folder <i>Spam</i>/<i>Promosi</i>).</li>
+      <li>Tekan <b>✅ Ya, tambahkan ke kalender</b>.</li>
+      <li>Di halaman yang terbuka, tekan <b>Ya</b> sekali lagi.</li>
+    </ol>
+    <p class="small muted">Jadwal <b>belum</b> masuk kalender sebelum Anda menjawab <b>Ya</b>. Tautan berlaku 3 hari.</p>`;
+  d.showModal();
+}
+async function sendAll() {
+  const s = state.settings, mode = curMode();
+  if (!s.clientId && !s.inviteUrl) { toast("Admin perlu mengisi pengaturan di langkah 1."); $("#cardAuth").scrollIntoView({ behavior: "smooth" }); return; }
+  if (!EMAIL_RE.test(s.email || "") && !(mode === "login" && tokenValid())) { toast("Ketik email Google Anda di langkah 1."); $("#cardAuth").scrollIntoView({ behavior: "smooth" }); const em = $("#email"); if (em) setTimeout(() => em.focus(), 400); return; }
+  if (mode === "invite") {
+    const list = state.events.filter(e => e.sel && e.status !== "ok"); if (!list.length) return;
+    sending = true; updateBar();
+    const r = await sendInvites(list);
+    sending = false; saveEvents(); renderList();
+    if (r.ok) { showConfirmInfo(s.email, r.ok); if (r.err) toast(`⚠ ${r.err} jadwal gagal dikirim.`, 6000); }
+    else toast(`Tidak ada yang dikirim${r.dup ? ` — ${r.dup} jadwal sudah ada di kalender` : ""}${r.err ? `, ${r.err} gagal` : ""}.`, 8000);
+    return;
+  }
+  if (!loggedInAsEmail()) { afterLoginAction = sendAll; login(false); return; }
+  const list = state.events.filter(e => e.sel && e.status !== "ok"); if (!list.length) return;
+  sending = true; updateBar();
+  const cal = encodeURIComponent(state.settings.calendarId || "primary"); let ok = 0, dup = 0, err = 0;
+  for (const ev of list) {
+    ev.status = "run"; ev.err = ""; renderList();
+    try {
+      if (state.settings.skipDup) {
+        const q = await api(`/calendars/${cal}/events?maxResults=1&privateExtendedProperty=${encodeURIComponent("kalotoId=" + evKey(ev))}`);
+        if (q.items && q.items.length) { ev.status = "dup"; ev.link = q.items[0].htmlLink; dup++; continue; }
+      }
+      const r = await api(`/calendars/${cal}/events`, { method: "POST", body: JSON.stringify(toGoogle(ev)) });
+      ev.status = "ok"; ev.link = r.htmlLink; ev.sel = false; ok++;
+    } catch (e) {
+      ev.status = "err"; ev.err = e.message; err++;
+      if (e.login) { ev.status = ""; afterLoginAction = sendAll; toast("Sesi login habis, silakan masuk lagi."); break; }
+    }
+  }
+  sending = false; saveEvents(); renderList();
+  toast(`Selesai: ${ok} masuk kalender${dup ? `, ${dup} sudah ada` : ""}${err ? `, ${err} gagal` : ""}.`, 6000);
+}
+
+/* ====== Ekspor ICS & template ====== */
+function icsEsc(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/([,;])/g, "\\$1"); }
+function exportIcs() {
+  const list = state.events.filter(e => e.sel); if (!list.length) return toast("Pilih jadwal dulu.");
+  const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Kalender Otomatis//ID", "CALSCALE:GREGORIAN"];
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
+  list.forEach(ev => {
+    const g = toGoogle(ev); const tz = ev.tz || state.settings.tz;
+    L.push("BEGIN:VEVENT", "UID:" + evKey(ev) + "-" + ev.id + "@kalender-otomatis", "DTSTAMP:" + stamp, "SUMMARY:" + icsEsc(g.summary));
+    if (g.start.date) { L.push("DTSTART;VALUE=DATE:" + g.start.date.replace(/-/g, ""), "DTEND;VALUE=DATE:" + g.end.date.replace(/-/g, "")); }
+    else { const f = s => s.replace(/[-:]/g, "").slice(0, 15); L.push(`DTSTART;TZID=${tz}:${f(g.start.dateTime)}`, `DTEND;TZID=${tz}:${f(g.end.dateTime)}`); }
+    if (g.location) L.push("LOCATION:" + icsEsc(g.location));
+    if (ev.desc) L.push("DESCRIPTION:" + icsEsc(ev.desc));
+    if (ev.recurrence) L.push(...ev.recurrence);
+    (effReminders(ev) || []).forEach(r => L.push("BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + icsEsc(g.summary), `TRIGGER:-PT${r.minutes}M`, "END:VALARM"));
+    L.push("END:VEVENT");
+  });
+  L.push("END:VCALENDAR");
+  const blob = new Blob([L.join("\r\n")], { type: "text/calendar" }); const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "jadwal.ics"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function downloadTemplate(ev) {
+  ev.preventDefault();
+  try {
+    await loadScript(LIB.xlsx);
+    const rows = [["Judul", "Tanggal", "Jam Mulai", "Jam Selesai", "Lokasi", "Keterangan", "Alarm"],
+      ["Rapat Komite Medik", "23 November 2026", "09.00", "11.00", "Ruang Rapat Lt. 2", "Bawa laporan bulanan", "30 menit, 1 hari"],
+      ["Visitasi Akreditasi", "02/12/2026", "08.00", "", "Aula", "", "1 jam"],
+      ["Cuti bersama", "24/12/2026", "", "", "", "Sepanjang hari (jam dikosongkan)", "1 hari"]];
+    const ws = XLSX.utils.aoa_to_sheet(rows); ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 10 }, { wch: 11 }, { wch: 20 }, { wch: 30 }, { wch: 18 }];
+    // kolom tanggal & jam sebagai teks supaya tidak diubah Excel
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Jadwal"); XLSX.writeFile(wb, "template-jadwal.xlsx");
+  } catch (e) { toast("⚠ " + e.message); }
+}
+
+/* ====== Event wiring ====== */
+const drop = $("#drop"), fileIn = $("#file");
+drop.onclick = () => fileIn.click();
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileIn.click(); } };
+fileIn.onchange = () => { handleFiles([...fileIn.files]); fileIn.value = ""; };
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => handleFiles([...e.dataTransfer.files]));
+$("#btnPaste").onclick = () => { const t = $("#paste").value; if (!t.trim()) return; const evs = textToEvents(t); const n = addEvents(evs, "teks"); toast(evs.length ? `${n} jadwal ditemukan` : "Tidak ditemukan tanggal pada teks."); };
+$("#tplLink").onclick = downloadTemplate;
+$("#list").onclick = e => {
+  const card = e.target.closest(".ev"); if (!card) return; const ev = state.events.find(x => x.id === card.dataset.id); if (!ev) return;
+  if (e.target.matches("[data-sel]")) { ev.sel = e.target.checked; saveEvents(); updateBar(); }
+  else if (e.target.closest("[data-edit]")) openEdit(ev);
+  else if (e.target.closest("[data-del]")) { state.events = state.events.filter(x => x !== ev); saveEvents(); renderList(); }
+};
+$("#btnAll").onclick = () => { const all = !state.events.every(e => e.sel); state.events.forEach(e => e.sel = all); saveEvents(); renderList(); };
+$("#btnAdd").onclick = () => openEdit(null);
+$("#btnClear").onclick = () => { if (!state.events.length) return; if (confirm("Hapus semua jadwal dari daftar ini? (Jadwal yang sudah masuk Google Kalender tidak ikut terhapus.)")) { state.events = []; saveEvents(); renderList(); } };
+$("#btnIcs").onclick = exportIcs;
+$("#btnSend").onclick = sendAll;
+$("#btnUseLogin").onclick = () => setMode("login");
+$("#btnUseInvite").onclick = e => { e.preventDefault(); setMode("invite"); };
+
+// Pengaturan
+const colorOpts = COLORS.map(c => `<option value="${c[0]}">${c[2] ? "● " : ""}${c[1]}</option>`).join("");
+$("#color").innerHTML = colorOpts; $("#fColor").innerHTML = colorOpts.replace("Bawaan kalender", "Ikuti pengaturan umum");
+$("#color").value = state.settings.color; $("#tz").value = state.settings.tz; $("#dur").value = String(state.settings.duration);
+$("#skipDup").checked = state.settings.skipDup; $("#useDefault").checked = state.settings.useDefault;
+const syncRemVis = () => { $("#globalRem").style.display = state.settings.useDefault ? "none" : ""; };
+$("#color").onchange = e => { state.settings.color = e.target.value; saveSettings(); renderList(); };
+$("#tz").onchange = e => { state.settings.tz = e.target.value; saveSettings(); };
+$("#dur").onchange = e => { state.settings.duration = +e.target.value; saveSettings(); };
+$("#skipDup").onchange = e => { state.settings.skipDup = e.target.checked; saveSettings(); };
+$("#useDefault").onchange = e => { state.settings.useDefault = e.target.checked; saveSettings(); syncRemVis(); renderList(); };
+reminderEditor($("#globalRem"), state.settings.reminders, () => { saveSettings(); renderList(); });
+syncRemVis();
+
+// Pulihkan sesi
+(function restore() {
+  const t = SS.get("kal_tok"); if (t && t.x > Date.now()) { state.token = t.t; state.tokenExp = t.x; }
+  state.user = LS.get("kal_user", null);
+  renderAuth(); renderList();
+  if (tokenValid()) afterLogin();
+  const iv = setInterval(() => { if (initGis() || !state.settings.clientId) clearInterval(iv); }, 300);
+  setTimeout(() => clearInterval(iv), 20000);
+})();
+
+// Berkas dibagikan lewat ?text= (share target)
+(function shareIn() { const p = new URLSearchParams(location.search); const t = [p.get("title"), p.get("text")].filter(Boolean).join("\n"); if (t) { const n = addEvents(textToEvents(t), "dibagikan"); toast(n + " jadwal dari teks yang dibagikan"); history.replaceState(null, "", location.pathname); } })();
+
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
